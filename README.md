@@ -1,9 +1,8 @@
-Kyle Hart
-Project: Commodities vs. Weather - Predicting Per-Capita GDP From Inferred Infrastructure
+# Commodities vs. Weather - Predicting Per-Capita GDP From Inferred Infrastructure
+
 Date: Dec 12, 2017
 
-
-CONCEPT
+**CONCEPT**
 
 The objective of this project is to see if we can predict the per-capita GDP of any given country based on information from its production of various commodities and yearly weather data, namely precipitation. This assumption is informed by the idea that a country with low income will be more affected by weather anomalies in their production of certain crops and livestock while a high income country will not. Factors that contribute to this include but are not limited to transportation infrastructure, seed reserves, soil quality, irrigation and human behavior. Assuming that we can create a model to make this prediction for the production of a given commodity--livestock or crop--we should be able to compare its accuracy against the same model ran against other commodities. By this process we should be able to find several "indicator goods" (i.e., commodities who's sensitivity to weather affects production in poor countries notably more than that in rich countries).
 
@@ -13,8 +12,7 @@ For the predictions I thought it a bit elementary to simply ask whether or not a
 
 The obvious choice for the model here is the Naive Bayes Classifier. We've already identified feature vectors and labels that can be discrete-ized fairly easily. Now all we have to do it process the data.
 
-
-DATA
+**DATA**
 
 The production data for crops and livestock came from the World Bank's open data repository https://data.worldbank.org, and was directly downloaded in csv format.
 
@@ -22,8 +20,7 @@ The GDP data was found on the United Nations' open data repository http://data.u
 
 The weather data was from the National Oceanic and Atmospheric Administration's (NOAA) Climate Data Online API. To download I chose to interface with the API via a python module and download the data via a long series of GET requests. Once downloaded I reshaped the data a bit and saved it into a csv. The code for all of this can be found in the 'data' directory.
 
-
-PREPROCESSING
+**PREPROCESSING**
 
 For whatever reason the World Bank and the United Nations like to organize their data in a strange horizontal fashion. For example the table holding data for crop production is organized by column as such, [Country, Item, Unit, Element, Y1961, Y1962, Y1963 ...]. The inconvenience of this structure becomes painfully obvious when you try to write a few SQL queries. So it was critical to re-shape our raw tables to make them more "transaction friendly". The idea is we want to have tables such that we can join the rows into transactions that we can easily pull features and labels from. Therefore a better version of the crops table would be columns [Country, Year, Item, Production]. The same holds true for the re-shaping of the livestock and GDP tables. The code for this reshaping is included in the package.
 
@@ -33,22 +30,18 @@ Finally, because we have data stretching back to the 1960's there is naturally s
 
 Finally, as described above, it was necessary to add "transaction friendly" columns to our tables that could be used as features and labels. For the weather table, we added a z-score for precipitation by each country by subtracting each years data from the overall mean and dividing by the standard deviation. For the production tables I added the binary "increase/decrease" data by using a windowing function on the query to compare each year's production figure against the years before. Finally, we used another windowing function on the GDP table to give each country a quintile value for its per-capita GDP for each year.
 
-
-MODEL
+**MODEL**
 
 The model happens to be the simplest and most straight forward part of this program. As you can see, for each commodity we get data frame rows for each year and country along with its respective weather z-score, production change, and income classification. The latter three are then fed to the Naive Bayes Classifier as features and labels. We give the model a 70/30 random split for training and test data then evaluate the accuracy. Again, this accuracy represents the model's ability to use the production level of a crop and the precipitation levels in a given year to predict that country's income level. High accuracy implies that the crop's production is more reliant on a counties infrastructure to support it through a time of anomalous weather. Commodities whose models have the highest can be considered "indicator goods".
 
-
-PERFORMANCE
+**PERFORMANCE**
 
 Unfortunately I did not get the chance to run this as a job on a hadoop/spark cluster, though it was largely unnecessary because the data set I was dealing with was nowhere nearly as "big" as I originally thought; the largest of the tables, crops and livestock, were only 1,000,000 rows a piece. Nonetheless, the job still took all night to run on my own machine (latest generation Lenovo Thinkpad T470s: Intel i7-7600U CPU, 20GB DDR4 RAM). Initially the job failed several times due to a memory overflow. I remember Ed White saying he had the same problem in class with a similar data size and even larger RAM. It took awhile, but I realized it was necessary to adjust spark's config manually to give it more memory for the driver and executor. This considerably increased the speed and prevented further memory overflows. Finally, paranoid, I included some manual garbage collection by unpersisting dataframes from memory and disk once finished with them. However, it is possible that this extra operation may have slowed the program even more.
 
-
-RESULTS
+**RESULTS**
 
 Initially, I wasn't too pleased with the results. With the best models I was only getting around 30% accuracy for certain commodities. After filtering for "bad countries" (see above) and adjusting the feature vectors I was able to push up max accuracy up to near 50% for certain commodities: Turkey-48%, Rapeseed-45%, Lettuce-45%. Considering that we have five labels this is a non-trivial accomplishment. There were some commodities whose models had even higher accuracy (over 70%), however I ended up throwing these out. The final restrictions I applied were to throw out any items that were produced by less than 50 countries or that had less than 1000 transactions for their respective models. While, these restrictions were somewhat arbitrary in value they were largely necessary. Commodities produced by a minority of countries such as anise and papayas are useless as indicator goods. Meanwhile, models trained on smaller datasets are less trustworthy.
 
+**VISUALIZATION**
 
-VISUALIZATION
-
-With the help of a number of online resources I was able to create a horizontal bar graph for the data. The bars' length indicates the level of accuracy for each commodity's model, the width reflects the number of countries that have produce that good. Finally, I attempted apply a color map to the bars to reflect the number of transactions fed to each model. Once I realized I'd spent more time on the color map than the actual models I gave up. The end result is that the color bar on the right reflects the number of transactions for the corresponding models on the left, darker blue indicates a higher number of transactions used. The final graphic is included in the package. 
+With the help of a number of online resources I was able to create a horizontal bar graph for the data. The bars' length indicates the level of accuracy for each commodity's model, the width reflects the number of countries that have produce that good. Finally, I attempted apply a color map to the bars to reflect the number of transactions fed to each model. Once I realized I'd spent more time on the color map than the actual models I gave up. The end result is that the color bar on the right reflects the number of transactions for the corresponding models on the left, darker blue indicates a higher number of transactions used. The final graphic is included in the package.
